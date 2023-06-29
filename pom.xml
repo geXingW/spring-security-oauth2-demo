@@ -19,6 +19,7 @@
         <module>oauth2-common/oauth2-common-core</module>
         <module>oauth2-auth</module>
         <module>oauth2-order</module>
+        <module>oauth2-login</module>
     </modules>
 
     <properties>
@@ -67,6 +68,7 @@
                 <artifactId>spring-security-oauth2-authorization-server</artifactId>
                 <version>${oauth2.authroization.server.version}</version>
             </dependency>
+
         </dependencies>
     </dependencyManagement>
 
