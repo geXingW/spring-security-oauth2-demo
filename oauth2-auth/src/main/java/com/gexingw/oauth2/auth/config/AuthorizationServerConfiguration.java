@@ -22,6 +22,8 @@ import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
@@ -30,6 +32,7 @@ import org.springframework.security.oauth2.server.authorization.config.ProviderS
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -43,19 +46,31 @@ import java.util.UUID;
  * @author GeXingW
  * @date 2023/6/27 12:08
  */
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @AllArgsConstructor
 public class AuthorizationServerConfiguration {
 
     PasswordEncoder passwordEncoder;
 
+    private static final String CUSTOM_CONSENT_PAGE_URI = "/oauth2/consent";
+
     @Bean
     @SneakyThrows
     @Order(Ordered.HIGHEST_PRECEDENCE)
-    @SuppressWarnings({"rawtypes", "unchecked"})
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity httpSecurity) {
-        OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(httpSecurity);
-        OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = httpSecurity.getConfigurer(OAuth2AuthorizationServerConfigurer.class);
+//        OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(httpSecurity);
+        OAuth2AuthorizationServerConfigurer<HttpSecurity> authorizationServerConfigurer = new OAuth2AuthorizationServerConfigurer<>();
+
+        // 自定义授权页面
+        authorizationServerConfigurer.authorizationEndpoint(endpoint -> endpoint.consentPage(CUSTOM_CONSENT_PAGE_URI));
+
+        RequestMatcher endpointsMatcher = authorizationServerConfigurer.getEndpointsMatcher();
+        httpSecurity.requestMatcher(endpointsMatcher)
+                .authorizeRequests(authorizeRequests ->
+                        authorizeRequests.anyRequest().authenticated()
+                )
+                .csrf(csrf -> csrf.ignoringRequestMatchers(endpointsMatcher));
+
 
         httpSecurity.exceptionHandling((exceptions) -> exceptions.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")));
 
@@ -116,8 +131,7 @@ public class AuthorizationServerConfiguration {
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
             keyPairGenerator.initialize(2048);
             keyPair = keyPairGenerator.generateKeyPair();
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             throw new IllegalStateException(ex);
         }
         return keyPair;
@@ -129,8 +143,14 @@ public class AuthorizationServerConfiguration {
     }
 
     @Bean
-    public ProviderSettings providerSettings(){
+    public ProviderSettings providerSettings() {
         return ProviderSettings.builder().issuer("http://localhost:8001").build();
+    }
+
+    @Bean
+    public OAuth2AuthorizationConsentService authorizationConsentService() {
+        // Will be used by the ConsentController
+        return new InMemoryOAuth2AuthorizationConsentService();
     }
 
 }
