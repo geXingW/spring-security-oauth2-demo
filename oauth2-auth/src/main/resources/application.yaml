@@ -4,11 +4,17 @@ server:
 spring:
   application:
     name: oauth2-auth
+
+  datasource:
+    url: jdbc:mysql://node-200:3306/oauth2-demo?useSSL=false&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&tinyInt1isBit=false&allowMultiQueries=true&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: gexingw
+    password: 12345678
+
 debug: true
 
 logging:
   level:
-    root: debug
     org.springframework.web: debug
     org.springframework.security: debug
     org.springframework.security.oauth2: debug

@@ -10,10 +10,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @date 2023/6/19 10:33
  */
 @SpringBootApplication
-public class Oauth2AuthApplication {
+public class OAuth2AuthApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(Oauth2AuthApplication.class);
+        SpringApplication.run(OAuth2AuthApplication.class);
     }
 
 

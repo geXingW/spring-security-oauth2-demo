@@ -7,10 +7,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.security.web.authentication.AuthenticationConverter;
-import org.springframework.util.MultiValueMap;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.HashMap;
+import java.util.Map;
 
 /**
  * spring-security-oauth2-demo.
@@ -28,7 +27,7 @@ public class OAuth2PasswordAuthenticationConvert implements AuthenticationConver
 
 
         Authentication clientPrincipal = SecurityContextHolder.getContext().getAuthentication();
-        MultiValueMap<String, String> parameters = MapUtil.getRequestParameters(request);
+        Map<String, Object> parameters = MapUtil.getRequestParameters(request);
 
         // 判断scope
 //        String scope = parameters.get(OAuth2ParameterNames.SCOPE);
@@ -40,11 +39,13 @@ public class OAuth2PasswordAuthenticationConvert implements AuthenticationConver
 //                    OAuth2ParameterNames.SCOPE,
 //                    OAuth2EndpointUtils.ACCESS_TOKEN_REQUEST_ERROR_URI);
 //        }
+//
+//        HashMap<String, Object> additionParameters = new HashMap<>(parameters.size());
+//        additionParameters.putAll(parameters);
 
-        HashMap<String, Object> additionParameters = new HashMap<>(parameters.size());
-        additionParameters.putAll(parameters);
 
-        return new OAuth2PasswordAuthenticationToken(clientPrincipal, additionParameters);
+
+        return new OAuth2PasswordAuthenticationToken(clientPrincipal, parameters);
     }
 
 }

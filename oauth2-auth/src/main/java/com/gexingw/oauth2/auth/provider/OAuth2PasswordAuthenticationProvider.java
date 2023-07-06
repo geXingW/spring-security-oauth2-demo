@@ -1,20 +1,18 @@
 package com.gexingw.oauth2.auth.provider;
 
 import com.gexingw.oauth2.auth.token.OAuth2PasswordAuthenticationToken;
-import org.springframework.security.authentication.AuthenticationProvider;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.oauth2.core.*;
-import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
-import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AccessTokenAuthenticationToken;
-import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientAuthenticationToken;
-import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
-import org.springframework.security.oauth2.server.authorization.token.DefaultOAuth2TokenContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
+
+import java.util.ArrayList;
+import java.util.Map;
 
 /**
  * spring-security-oauth2-demo.
@@ -22,69 +20,49 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
  * @author GeXingW
  * @date 2023/7/2 11:22
  */
-public class OAuth2PasswordAuthenticationProvider implements AuthenticationProvider {
-
-    private final OAuth2AuthorizationService oAuth2AuthorizationService;
-
-    private final OAuth2TokenGenerator<? extends OAuth2Token> tokenGenerator;
-
-    private final UserDetailsService userDetailsService;
+public class OAuth2PasswordAuthenticationProvider extends AbstractOAuth2AuthenticationProvider {
 
     public final static String GRANT_TYPE_PASSWORD = "password";
 
-    public OAuth2PasswordAuthenticationProvider(OAuth2AuthorizationService authorizationService, OAuth2TokenGenerator<? extends OAuth2Token> tokenGenerator, UserDetailsService userDetailsService) {
-        this.oAuth2AuthorizationService = authorizationService;
-        this.tokenGenerator = tokenGenerator;
-        this.userDetailsService = userDetailsService;
-    }
+    public final static String PARAM_USERNAME = "username";
 
-    @Override
-    public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-//        UserDetails userDetails = this.userDetailsService.loadUserByUsername("user");
-//        if (userDetails == null) {
-//            throw new RuntimeException("用户名密码错误!");
-//        }
+    public final static String PARAM_PASSWORD = "password";
 
-        OAuth2ClientAuthenticationToken principal = (OAuth2ClientAuthenticationToken) authentication.getPrincipal();
-        RegisteredClient registeredClient = principal.getRegisteredClient();
-        if (registeredClient == null) {
-            throw new RuntimeException("Client信息错误!");
-        }
-
-        // 生成AccessToken
-        DefaultOAuth2TokenContext accessTokenContext = DefaultOAuth2TokenContext.builder().registeredClient(registeredClient)
-                .principal(principal).tokenType(OAuth2TokenType.ACCESS_TOKEN).authorizedScopes(registeredClient.getScopes())
-                .authorizationGrantType(new AuthorizationGrantType(GRANT_TYPE_PASSWORD)).build();
-        OAuth2Token accessToken = tokenGenerator.generate(accessTokenContext);
-        if (accessToken == null) {
-            throw new RuntimeException("AccessToken生成失败!");
-        }
-        OAuth2AccessToken oAuth2AccessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, accessToken.getTokenValue(), accessToken.getIssuedAt(), accessToken.getExpiresAt(), accessTokenContext.getAuthorizedScopes());
-
-        // 生成refreshToken
-        DefaultOAuth2TokenContext refreshTokenContext = DefaultOAuth2TokenContext.builder().registeredClient(registeredClient)
-                .tokenType(OAuth2TokenType.REFRESH_TOKEN).authorizationGrantType(new AuthorizationGrantType(GRANT_TYPE_PASSWORD))
-                .build();
-        OAuth2Token refreshToken = tokenGenerator.generate(refreshTokenContext);
-        if (refreshToken == null) {
-            throw new RuntimeException("RefreshToken生成失败!");
-        }
-        OAuth2RefreshToken oAuth2RefreshToken = (OAuth2RefreshToken) refreshToken;
-
-        oAuth2AuthorizationService.save(
-                OAuth2Authorization.withRegisteredClient(registeredClient).principalName(authentication.getName())
-                        .authorizationGrantType(new AuthorizationGrantType(GRANT_TYPE_PASSWORD))
-                        .accessToken(oAuth2AccessToken).refreshToken(oAuth2RefreshToken).build()
-        );
-
-        SecurityContextHolder.clearContext();
-
-        return new OAuth2AccessTokenAuthenticationToken(registeredClient, principal, oAuth2AccessToken, oAuth2RefreshToken);
+    public OAuth2PasswordAuthenticationProvider(OAuth2AuthorizationService authorizationService, OAuth2TokenGenerator<? extends OAuth2Token> tokenGenerator, UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
+        super(authorizationService, tokenGenerator, userDetailsService, passwordEncoder);
     }
 
     @Override
     public boolean supports(Class<?> authentication) {
         return OAuth2PasswordAuthenticationToken.class.isAssignableFrom(authentication);
+    }
+
+    @Override
+    protected Authentication getAuthenticatedInfo(Authentication authentication) {
+        OAuth2PasswordAuthenticationToken passwordAuthentication = (OAuth2PasswordAuthenticationToken) authentication;
+
+        // 查询登录信息并校验
+        Map<String, Object> parameters = passwordAuthentication.getAdditionalParameters();
+        String username = (String) parameters.get(PARAM_USERNAME);
+        if (StringUtils.isBlank(username)) {
+            throw new RuntimeException("用户名不能为空！");
+        }
+
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+        if (userDetails == null) {
+            throw new RuntimeException("用户名或密码错误！");
+        }
+
+        if (!passwordEncoder.matches(parameters.get(PARAM_PASSWORD).toString(), userDetails.getPassword())) {
+            throw new RuntimeException("用户名或密码错误！");
+        }
+
+        return new UsernamePasswordAuthenticationToken(userDetails, userDetails.getPassword(), new ArrayList<>());
+    }
+
+    @Override
+    protected String getGrantType() {
+        return GRANT_TYPE_PASSWORD;
     }
 
 }
